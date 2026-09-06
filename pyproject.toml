@@ -13,10 +13,12 @@ dependencies = [
   "Pillow",
   "fastapi",
   "uvicorn",
+  "pywebview",
 ]
 
 [project.scripts]
 frame-palette-cli = "frame_palette.cli:main"
+frame-palette = "main:main"
 
 [project.optional-dependencies]
 dev = [
@@ -26,6 +28,7 @@ dev = [
 
 [tool.setuptools]
 packages = ["frame_palette"]
+py-modules = ["main"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

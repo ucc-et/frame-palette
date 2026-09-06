@@ -3,31 +3,275 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Frame Palette</title>
-  <style>
-    body {
-      margin: 0;
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      background: #111317;
-      color: #f4f7fb;
-      font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
-    }
-    main { text-align: center; max-width: 32rem; padding: 2rem; }
-    h1 { margin-bottom: 0.5rem; }
-    p { color: #9ca7b4; }
-    code { color: #a58cff; }
-  </style>
+  <title>Frame Palette — Video to Stripes</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main>
-    <h1>Frame Palette</h1>
-    <p>
-      The API backend is up. This placeholder page will be replaced by the
-      real UI (subissue "Build the web frontend matching the mockup").
-      Try <code>/docs</code> for the interactive API reference.
-    </p>
-  </main>
+  <div class="app">
+    <header class="topbar"><h1>Video to Stripes</h1></header>
+
+    <div class="body">
+      <aside class="sidebar">
+        <div class="hero">
+          <div class="hero__icon">
+            <span style="background:#6ca2ff"></span>
+            <span style="background:#87b7ff"></span>
+            <span style="background:#c6c8d0"></span>
+            <span style="background:#f1d0b4"></span>
+            <span style="background:#ca8c62"></span>
+          </div>
+          <div>
+            <h1>Video to<br />Stripes</h1>
+            <p>Turn any video into a stunning vertical stripe poster.</p>
+          </div>
+        </div>
+
+        <section class="card" id="video-card">
+          <h2 class="card__title">
+            <span class="step-badge" id="step-badge-1">1</span> Choose Video
+          </h2>
+
+          <div class="video-preview" id="video-preview">
+            <div class="video-thumb" id="video-thumb">
+              <div class="video-thumb__placeholder" id="video-thumb-placeholder">Choose a video</div>
+              <img id="video-thumb-img" alt="" hidden />
+              <button class="video-thumb__remove" id="btn-remove-video" title="Remove video" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div class="video-meta">
+              <div class="video-meta__name" id="video-name">No video selected</div>
+              <div class="video-meta__details" id="video-details"></div>
+            </div>
+          </div>
+
+          <button class="btn btn--ghost" id="btn-choose-video" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" /></svg>
+            Choose Video...
+          </button>
+          <p class="hint">MP4, MOV, AVI, MKV, WebM and more</p>
+        </section>
+
+        <section class="card">
+          <h2 class="card__title"><span class="step-badge">2</span> Customize</h2>
+
+          <div class="field">
+            <div class="field__row">
+              <span class="field__label">Stripe Width</span>
+              <span class="field__value" id="val-stripe-width">2px</span>
+            </div>
+            <input type="range" id="stripe-width" min="1" max="24" step="1" value="2" />
+          </div>
+
+          <div class="field">
+            <div class="field__row">
+              <span class="field__label">
+                Smoothing
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+              </span>
+            </div>
+            <div class="select-wrap">
+              <select id="smoothing">
+                <option value="off">Off</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field__row">
+              <span class="field__label">
+                Color Mode
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+              </span>
+            </div>
+            <div class="segmented" id="color-mode" data-value="average">
+              <button type="button" data-value="average" class="is-active">Average (Default)</button>
+              <button type="button" data-value="median">Median</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field__row">
+              <span class="field__label">
+                Blur (Optional)
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+              </span>
+              <span class="field__value" id="val-blur">0px</span>
+            </div>
+            <input type="range" id="blur" min="0" max="20" step="1" value="0" />
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="card__title"><span class="step-badge">3</span> Export</h2>
+
+          <div class="field">
+            <div class="field__row">
+              <span class="field__label">
+                Output Width
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+              </span>
+              <span class="field__value" id="val-output-width">1080px</span>
+            </div>
+            <input type="range" id="output-width" min="200" max="8000" step="10" value="1080" />
+          </div>
+
+          <div class="field">
+            <div class="field__row">
+              <span class="field__label">
+                Output Format
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+              </span>
+            </div>
+            <div class="segmented" id="output-format" data-value="png">
+              <button type="button" data-value="png" class="is-active">PNG</button>
+              <button type="button" data-value="jpg">JPG</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <button class="btn btn--primary" id="btn-generate" type="button" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
+              Generate Poster
+            </button>
+          </div>
+          <div class="field">
+            <button class="btn btn--secondary" id="btn-preview" type="button" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+              Preview (Quick)
+            </button>
+          </div>
+        </section>
+
+        <div class="sidebar__footnote">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+          All processing is done locally.
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="main-stack">
+          <section class="card preview-card">
+            <div class="preview-header">
+              <h2>Preview</h2>
+              <div class="preview-controls">
+                <div class="segmented segmented--pill" id="preview-mode" data-value="fit">
+                  <button type="button" data-value="fit" class="is-active">Fit</button>
+                  <button type="button" data-value="fill">Fill</button>
+                  <button type="button" data-value="actual">1:1</button>
+                </div>
+                <div class="zoom-indicator">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+                  <span id="zoom-value">100%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="preview-stage mode-fit" id="preview-stage">
+              <div class="preview-stage__empty" id="preview-empty">Select a video and generate a poster to preview it here.</div>
+              <img id="preview-image" alt="Generated stripe poster" hidden />
+              <div class="preview-stage__spinner" id="preview-spinner">Rendering preview…</div>
+            </div>
+
+            <div class="scrubber">
+              <button class="scrubber__play" id="btn-play" type="button">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7-11-7Z" /></svg>
+              </button>
+              <time id="time-current">00:00:00</time>
+              <input type="range" id="scrub" min="0" max="100" value="0" step="0.1" disabled />
+              <time id="time-total">00:00:00</time>
+            </div>
+            <video id="source-video" preload="metadata" style="display:none"></video>
+          </section>
+
+          <section class="drawer is-open" id="drawer">
+            <div class="drawer__header" id="drawer-toggle">
+              <div class="drawer__header-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.55 1 1.4 1 2.3V16h6v-.2c0-.9.4-1.75 1-2.3A6 6 0 0 0 12 3Z" /></svg>
+                Advanced
+              </div>
+              <svg class="drawer__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+            </div>
+            <div class="drawer__body">
+              <div class="field">
+                <span class="field__label">
+                  Start Time
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+                </span>
+                <div class="spin-input" style="margin-top: 8px">
+                  <input type="text" class="time-input" id="start-time" value="00:00:00" />
+                  <div class="spin-input__controls">
+                    <button type="button" data-target="start-time" data-dir="1" aria-label="Increase start time">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6" /></svg>
+                    </button>
+                    <button type="button" data-target="start-time" data-dir="-1" aria-label="Decrease start time">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field">
+                <span class="field__label">
+                  End Time
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+                </span>
+                <div class="spin-input" style="margin-top: 8px">
+                  <input type="text" class="time-input" id="end-time" value="00:00:00" />
+                  <div class="spin-input__controls">
+                    <button type="button" data-target="end-time" data-dir="1" aria-label="Increase end time">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6" /></svg>
+                    </button>
+                    <button type="button" data-target="end-time" data-dir="-1" aria-label="Decrease end time">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field">
+                <span class="field__label">
+                  Sample Every
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+                </span>
+                <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px">
+                  <input type="number" class="number-input" id="sample-every" min="1" step="1" value="1" style="width: 70px" />
+                  <span class="field__hint" style="margin: 0">frame (1 = every frame)</span>
+                </div>
+              </div>
+
+              <div class="field">
+                <span class="field__label">Orientation</span>
+                <div class="segmented" id="orientation" data-value="vertical" style="margin-top: 8px">
+                  <button type="button" data-value="vertical" class="is-active">Vertical Stripes</button>
+                  <button type="button" data-value="horizontal">Horizontal Stripes</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card card--alt">
+            <h2 class="card__title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent); width: 16px; height: 16px"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.6.55 1 1.4 1 2.3V16h6v-.2c0-.9.4-1.75 1-2.3A6 6 0 0 0 12 3Z" /></svg>
+              About
+            </h2>
+            <p id="about-text" style="margin: 0; font-size: 11px; color: var(--muted); line-height: 1.5">
+              Each vertical stripe represents the average color of a single frame in the video. Longer videos will result in more stripes.
+            </p>
+          </section>
+
+          <footer class="page-footer">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-6.7-4.35-9.3-8.1C.8 9.9 1.9 6 5.4 5c2-.55 3.9.35 4.9 2 1-1.65 2.9-2.55 4.9-2 3.5 1 4.6 4.9 2.7 7.9C18.7 16.65 12 21 12 21Z" /></svg>
+            Made with Python
+          </footer>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>

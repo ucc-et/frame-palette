@@ -24,6 +24,7 @@ frame-palette = "main:main"
 dev = [
   "pytest",
   "httpx",
+  "pyinstaller",
 ]
 
 [tool.setuptools]

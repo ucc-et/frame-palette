@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import io
 import re
+import sys
 import threading
 import uuid
 from dataclasses import replace
@@ -26,7 +27,22 @@ from pydantic import BaseModel, Field
 from frame_palette import core, video
 from frame_palette.settings import ColorMode, Orientation, OutputFormat, PosterSettings, Smoothing
 
-UI_DIR = Path(__file__).resolve().parent.parent / "ui"
+
+def _resolve_ui_dir() -> Path:
+    """Locate the ``ui/`` static asset directory.
+
+    In a normal source checkout this is the ``ui/`` folder next to
+    ``frame_palette/``. Inside a PyInstaller-frozen build there is no
+    ``frame_palette`` source tree on disk -- everything is unpacked under
+    ``sys._MEIPASS`` instead, with ``ui/`` bundled there as a top-level
+    data directory (see ``frame_palette_app.spec``).
+    """
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent)) / "ui"
+    return Path(__file__).resolve().parent.parent / "ui"
+
+
+UI_DIR = _resolve_ui_dir()
 
 app = FastAPI(title="Frame Palette API")
 

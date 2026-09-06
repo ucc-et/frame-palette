@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frame-palette"
+version = "0.1.0"
+description = "Turn a video into a stripe-poster of its average frame colors"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "opencv-python",
+  "Pillow",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+]
+
+[tool.setuptools]
+packages = ["frame_palette"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

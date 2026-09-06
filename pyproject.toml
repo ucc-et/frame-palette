@@ -11,6 +11,8 @@ dependencies = [
   "numpy",
   "opencv-python",
   "Pillow",
+  "fastapi",
+  "uvicorn",
 ]
 
 [project.scripts]
@@ -19,6 +21,7 @@ frame-palette-cli = "frame_palette.cli:main"
 [project.optional-dependencies]
 dev = [
   "pytest",
+  "httpx",
 ]
 
 [tool.setuptools]

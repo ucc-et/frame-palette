@@ -13,6 +13,9 @@ dependencies = [
   "Pillow",
 ]
 
+[project.scripts]
+frame-palette-cli = "frame_palette.cli:main"
+
 [project.optional-dependencies]
 dev = [
   "pytest",

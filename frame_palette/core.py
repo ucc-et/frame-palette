@@ -188,14 +188,13 @@ def generate_palette_image(
     return build_palette_image(color_array, settings, title=title)
 
 
-def save_palette_image(
-    video_path: str | Path,
-    output_path: str | Path,
-    settings: PosterSettings,
-    title: str = "",
-    progress_callback: ProgressCallback | None = None,
-) -> Path:
-    image = generate_palette_image(video_path, settings, title=title, progress_callback=progress_callback)
+def save_image(image: "Image.Image", output_path: str | Path, settings: PosterSettings) -> Path:
+    """Write ``image`` to disk honoring ``settings.output_format``/``jpg_quality``.
+
+    Shared by ``save_palette_image`` (video source) and any caller that
+    already has a built image and just needs it written out correctly (for
+    example the CLI's CSV-render path).
+    """
     target_path = Path(output_path)
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -209,6 +208,17 @@ def save_palette_image(
         image.save(target_path, format="PNG")
 
     return target_path
+
+
+def save_palette_image(
+    video_path: str | Path,
+    output_path: str | Path,
+    settings: PosterSettings,
+    title: str = "",
+    progress_callback: ProgressCallback | None = None,
+) -> Path:
+    image = generate_palette_image(video_path, settings, title=title, progress_callback=progress_callback)
+    return save_image(image, output_path, settings)
 
 
 def read_colors_from_csv(csv_file: str | Path) -> np.ndarray:

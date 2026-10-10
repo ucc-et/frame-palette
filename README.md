@@ -1,10 +1,48 @@
-# Video to Stripes (frame-palette)
+# FramePalette
 
 Turn any video into a stripe poster: one stripe per sampled frame, colored by
 that frame's average (or median) color, laid out vertically or horizontally
 into a single downloadable image. Feed it a movie, a music video, a home
 recording -- the output is a visual fingerprint of how its color palette
 changes from start to end.
+
+![FramePalette desktop app with a video loaded and a live stripe preview](docs/screenshots/ui-preview.png)
+
+Loading a video shows its thumbnail and metadata, scrubs frame-by-frame, and
+live-updates a low-res preview as you adjust settings -- before generating
+the full-resolution poster.
+
+## Download
+
+Prebuilt apps for macOS, Windows, and Linux are attached to every release on
+the [Releases page](../../releases). Unzip and run -- no Python install
+needed. The macOS build is for Apple Silicon Macs (M1 and later).
+
+### Opening the app on macOS
+
+Until a release is signed and notarized by Apple (see
+[`BUILDING.md`](BUILDING.md#signing-and-notarizing-the-macos-app)), macOS
+blocks it on first launch with *"Apple could not verify 'FramePalette' is
+free of malware..."*. You only have to get past this once per download:
+
+1. Unzip `FramePalette-macOS.zip` and move `FramePalette.app` to
+   **Applications**.
+2. Double-click it. When the warning appears, click **Done** (not *Move to
+   Trash*).
+3. Open **System Settings -> Privacy & Security**, scroll down to
+   **Security**, and click **Open Anyway** next to the message about
+   FramePalette. Confirm with your password or Touch ID, then click **Open
+   Anyway** once more.
+
+From then on it opens like any other app. (On macOS 15 Sequoia and later,
+the old *right-click -> Open* shortcut no longer skips this check.)
+
+Alternatively, remove the "downloaded from the internet" flag that triggers
+the check, from Terminal:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/FramePalette.app
+```
 
 ## What's in this repository
 
@@ -24,9 +62,9 @@ changes from start to end.
   browser tab."
 - **`frame_palette_app.spec`** -- a PyInstaller spec that packages all of the
   above into a single double-clickable app. See [`BUILDING.md`](BUILDING.md)
-  for building it yourself, or grab a prebuilt one from the
-  [Releases page](../../releases) -- `.github/workflows/release.yml` builds a
-  fresh macOS/Windows/Linux release automatically on every merge to `main`.
+  for building it yourself, or [download](#download) a prebuilt one --
+  `.github/workflows/release.yml` builds a fresh macOS/Windows/Linux release
+  automatically on every merge to `main`.
 
 ## Running it locally
 
@@ -71,14 +109,6 @@ settings the UI exposes).
 ```sh
 pytest
 ```
-
-## Example: the UI
-
-Loading a video shows its thumbnail and metadata, scrubs frame-by-frame, and
-live-updates a low-res preview as you adjust settings -- before generating
-the full-resolution poster.
-
-![Video to Stripes UI, showing a loaded video and a live stripe preview](docs/screenshots/ui-preview.png)
 
 ## Example: results
 

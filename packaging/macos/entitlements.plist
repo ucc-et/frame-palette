@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for the signed + notarized macOS build.
+  Notarization requires the hardened runtime, which by default forbids a
+  couple of things an embedded CPython interpreter relies on:
+
+  - allow-unsigned-executable-memory: ctypes / libffi (used by pyobjc,
+    which pywebview's Cocoa backend is built on) write executable
+    trampolines at runtime.
+  - disable-library-validation: lets the interpreter load the extension
+    modules and dylibs bundled from third-party wheels (numpy, cv2, PIL)
+    even if one of them isn't signed by our own Team ID.
+
+  Only takes effect when MACOS_CODESIGN_IDENTITY is set (that is what turns
+  the hardened runtime on); see frame_palette_app.spec.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

@@ -72,14 +72,98 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -e ".[dev]"
 
+      # Gatekeeper only opens a downloaded app without the "Apple could not
+      # verify ... is free of malware" block if it is signed with a
+      # Developer ID certificate *and* notarized by Apple. That needs a paid
+      # Apple Developer account, so it's opt-in via repository secrets (see
+      # BUILDING.md); without them the build still succeeds, just ad-hoc
+      # signed, exactly like before.
+      - name: Import Developer ID certificate (macOS)
+        id: macos_signing
+        if: matrix.platform == 'macos'
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_CERTIFICATE_P12" ]; then
+            echo "::warning title=Unsigned macOS build::MACOS_CERTIFICATE_P12 is not set, so the macOS app is only ad-hoc signed and Gatekeeper will block it after download. See BUILDING.md -> 'Signing and notarizing the macOS app'."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(openssl rand -base64 24)"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+
+          echo "$MACOS_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" \
+            -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$keychain_password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+
+          identity=$(security find-identity -v -p codesigning "$keychain" \
+            | awk '/Developer ID Application/ { print $2; exit }')
+          if [ -z "$identity" ]; then
+            echo "::error::MACOS_CERTIFICATE_P12 does not contain a 'Developer ID Application' identity"
+            exit 1
+          fi
+          # Picked up by frame_palette_app.spec.
+          echo "MACOS_CODESIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
       - name: Build with PyInstaller
         run: python -m PyInstaller --noconfirm --clean frame_palette_app.spec
+
+      - name: Verify code signature (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          codesign --verify --deep --strict --verbose=2 dist/FramePalette.app
+          codesign --display --verbose=2 dist/FramePalette.app
 
       - name: Package build (macOS)
         if: matrix.platform == 'macos'
         run: |
           cd dist
           ditto -c -k --sequesterRsrc --keepParent FramePalette.app "../${{ matrix.asset_name }}"
+
+      - name: Notarize and staple (macOS)
+        if: matrix.platform == 'macos' && steps.macos_signing.outputs.enabled == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          auth=(--apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID")
+
+          # notarytool's exit code doesn't reliably reflect an "Invalid"
+          # verdict, so read the status out of its JSON instead.
+          xcrun notarytool submit "${{ matrix.asset_name }}" "${auth[@]}" \
+            --wait --timeout 30m --output-format json > "$RUNNER_TEMP/notarize.json" || true
+          cat "$RUNNER_TEMP/notarize.json"
+          status=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('status', ''))" "$RUNNER_TEMP/notarize.json" || true)
+          if [ "$status" != "Accepted" ]; then
+            submission_id=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('id', ''))" "$RUNNER_TEMP/notarize.json" || true)
+            if [ -n "$submission_id" ]; then
+              xcrun notarytool log "$submission_id" "${auth[@]}"
+            fi
+            echo "::error::Notarization failed (status: '${status:-unknown}')"
+            exit 1
+          fi
+
+          # Staple the ticket into the .app so Gatekeeper can verify it
+          # offline, then re-zip so the release asset carries the ticket.
+          xcrun stapler staple dist/FramePalette.app
+          spctl --assess --type execute --verbose=4 dist/FramePalette.app
+          rm "${{ matrix.asset_name }}"
+          (cd dist && ditto -c -k --sequesterRsrc --keepParent FramePalette.app "../${{ matrix.asset_name }}")
+
+      - name: Remove signing keychain (macOS)
+        if: always() && matrix.platform == 'macos' && steps.macos_signing.outputs.enabled == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db"
 
       - name: Package build (Windows)
         if: matrix.platform == 'windows'
@@ -122,10 +206,25 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v${version}-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
+      # Until the macOS build is notarized (see the build job), tell people
+      # downloading it how to get past Gatekeeper.
+      - name: Write release notes header
+        env:
+          MACOS_SIGNED: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+        run: |
+          if [ "$MACOS_SIGNED" = "true" ]; then
+            : > release-notes.md
+          else
+            cat > release-notes.md <<'EOF'
+          > **macOS:** this build is not notarized by Apple yet, so macOS will say it "could not verify FramePalette is free of malware" on first launch. See [Opening the app on macOS](https://github.com/${{ github.repository }}#opening-the-app-on-macos) for the one-time fix.
+          EOF
+          fi
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Frame Palette v${{ steps.version.outputs.version }} (build ${{ github.run_number }})
+          body_path: release-notes.md
           generate_release_notes: true
           files: release-assets/*

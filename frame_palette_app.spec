@@ -9,16 +9,33 @@ Build with:
     pyinstaller frame_palette_app.spec
 
 Output lands in ``dist/`` (``dist/FramePalette.app`` on macOS,
-``dist/FramePalette/FramePalette`` elsewhere). Both ``build/`` and
-``dist/`` are git-ignored -- this file is the only build artifact meant
-to be committed.
+``dist/FramePalette.exe`` / ``dist/FramePalette`` elsewhere). Both
+``build/`` and ``dist/`` are git-ignored -- this file is the only build
+artifact meant to be committed.
+
+macOS code signing is driven by environment variables so the same spec
+works for local, unsigned CI, and signed CI builds:
+
+- ``MACOS_CODESIGN_IDENTITY`` unset (the default): every binary and the
+  ``.app`` are ad-hoc signed. Runs locally, but a downloaded copy trips
+  Gatekeeper's "could not verify ... free of malware" prompt.
+- ``MACOS_CODESIGN_IDENTITY="Developer ID Application: ..."`` (or that
+  certificate's SHA-1 hash): PyInstaller signs everything with that
+  identity, hardened runtime enabled, using
+  ``packaging/macos/entitlements.plist``. The result can then be
+  notarized -- see the release workflow and BUILDING.md.
 """
 
+import os
 import sys
 
 from PyInstaller.utils.hooks import collect_all
 
 APP_NAME = "FramePalette"
+
+IS_MACOS = sys.platform == "darwin"
+CODESIGN_IDENTITY = os.environ.get("MACOS_CODESIGN_IDENTITY") or None
+ENTITLEMENTS_FILE = os.path.join("packaging", "macos", "entitlements.plist") if IS_MACOS else None
 
 # Each of these ships its own compiled extensions and/or data files that
 # PyInstaller's static import analysis can't always see on its own.
@@ -63,7 +80,7 @@ for package in _COLLECT_PACKAGES:
 # the `webview` package itself, so force-including the one backend this
 # platform actually needs closes that gap directly instead of relying on
 # collect_all()/modulegraph to infer it.
-if sys.platform == "darwin":
+if IS_MACOS:
     hiddenimports.append("webview.platforms.cocoa")
 elif sys.platform == "win32":
     hiddenimports.append("webview.platforms.winforms")
@@ -86,30 +103,57 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.datas,
-    [],
-    name=APP_NAME,
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    console=False,
-)
-
-if sys.platform == "darwin":
-    app = BUNDLE(
+if IS_MACOS:
+    # onedir inside the .app, not onefile: a onefile .app re-extracts the
+    # whole bundle to a temp dir on every launch, which is slow and is
+    # exactly what Gatekeeper/notarization dislike -- PyInstaller 6 warns
+    # that combination "clashes with macOS's security" and 7.0 will reject
+    # it outright. With onedir every dylib sits signed inside the bundle.
+    exe = EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name=APP_NAME,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,  # UPX-packed Mach-O binaries break code signing
+        console=False,
+        codesign_identity=CODESIGN_IDENTITY,
+        entitlements_file=ENTITLEMENTS_FILE,
+    )
+    coll = COLLECT(
         exe,
+        a.binaries,
+        a.datas,
+        strip=False,
+        upx=False,
+        name=APP_NAME,
+    )
+    app = BUNDLE(
+        coll,
         name=f"{APP_NAME}.app",
         icon=None,
         bundle_identifier="com.ucc-et.frame-palette",
         info_plist={
-            "CFBundleName": "Video to Stripes",
-            "CFBundleDisplayName": "Video to Stripes",
+            "CFBundleName": "FramePalette",
+            "CFBundleDisplayName": "FramePalette",
             "CFBundleShortVersionString": "0.1.0",
             "NSHighResolutionCapable": True,
         },
+    )
+else:
+    exe = EXE(
+        pyz,
+        a.scripts,
+        a.binaries,
+        a.datas,
+        [],
+        name=APP_NAME,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=True,
+        console=False,
     )

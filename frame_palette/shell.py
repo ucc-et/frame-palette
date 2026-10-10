@@ -25,7 +25,7 @@ import webview
 
 from frame_palette.server import app as fastapi_app
 
-WINDOW_TITLE = "Video to Stripes"
+WINDOW_TITLE = "FramePalette"
 DEFAULT_WIDTH = 1240
 DEFAULT_HEIGHT = 900
 MIN_SIZE = (960, 700)

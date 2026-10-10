@@ -173,4 +173,4 @@ def test_generate_status_404_for_unknown_job(client):
 def test_root_serves_static_ui(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "Frame Palette" in response.text
+    assert "<title>FramePalette</title>" in response.text

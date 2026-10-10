@@ -21,9 +21,11 @@ const dom = {
   videoThumbPlaceholder: el("video-thumb-placeholder"),
   videoThumbImg: el("video-thumb-img"),
   btnRemoveVideo: el("btn-remove-video"),
+  videoMeta: el("video-meta"),
   videoName: el("video-name"),
   videoDetails: el("video-details"),
   btnChooseVideo: el("btn-choose-video"),
+  chooseVideoLabel: el("choose-video-label"),
 
   stripeWidth: el("stripe-width"),
   valStripeWidth: el("val-stripe-width"),
@@ -32,12 +34,15 @@ const dom = {
   blur: el("blur"),
   valBlur: el("val-blur"),
 
-  outputWidth: el("output-width"),
+  outputWidthPreset: el("output-width-preset"),
+  outputWidthCustom: el("output-width-custom"),
+  customWidthRow: el("custom-width-row"),
   valOutputWidth: el("val-output-width"),
   outputFormat: el("output-format"),
   btnGenerate: el("btn-generate"),
   btnPreview: el("btn-preview"),
 
+  previewControls: el("preview-controls"),
   previewMode: el("preview-mode"),
   zoomValue: el("zoom-value"),
   previewStage: el("preview-stage"),
@@ -59,7 +64,13 @@ const dom = {
   orientation: el("orientation"),
 
   aboutText: el("about-text"),
+
+  // Everything except "choose a video" is meaningless until one is loaded.
+  needsVideo: document.querySelectorAll("[data-needs-video]"),
 };
+
+const OUTPUT_WIDTH_MIN = 200;
+const OUTPUT_WIDTH_MAX = 8000;
 
 const state = {
   videoPath: null,
@@ -146,6 +157,23 @@ function wireSegmented(container, onChange) {
   });
 }
 
+function setVideoControlsEnabled(enabled) {
+  dom.needsVideo.forEach((section) => {
+    section.classList.toggle("is-disabled", !enabled);
+    section.querySelectorAll("input, select, button").forEach((control) => {
+      control.disabled = !enabled;
+    });
+  });
+}
+
+// Fit / Fill / 1:1 only have something to act on once a poster is showing.
+function setPreviewModeEnabled(enabled) {
+  dom.previewControls.classList.toggle("is-disabled", !enabled);
+  dom.previewMode.querySelectorAll("button").forEach((btn) => {
+    btn.disabled = !enabled;
+  });
+}
+
 // ---------------------------------------------------------------------
 // video loading
 // ---------------------------------------------------------------------
@@ -166,6 +194,7 @@ async function loadVideo(path) {
       dom.videoThumbImg.hidden = false;
     }
 
+    dom.videoMeta.hidden = false;
     dom.videoName.textContent = info.path.split("/").pop();
     dom.videoDetails.textContent = [
       formatTime(info.duration_seconds),
@@ -177,11 +206,12 @@ async function loadVideo(path) {
     dom.endTime.value = formatTime(info.duration_seconds);
 
     dom.sourceVideo.src = `${API.stream}?path=${encodeURIComponent(info.path)}`;
-    dom.scrub.disabled = false;
     dom.timeTotal.textContent = formatTime(info.duration_seconds);
 
-    dom.btnGenerate.disabled = false;
-    dom.btnPreview.disabled = false;
+    setVideoControlsEnabled(true);
+    // Once a video is in, Generate is the main action; demote this one.
+    dom.btnChooseVideo.classList.replace("btn--primary", "btn--secondary");
+    dom.chooseVideoLabel.textContent = "Change Video…";
 
     requestPreview();
   } catch (err) {
@@ -197,19 +227,23 @@ function clearVideo() {
   dom.videoThumbPlaceholder.hidden = false;
   dom.videoThumbImg.hidden = true;
   dom.videoThumbImg.removeAttribute("src");
-  dom.videoName.textContent = "No video selected";
+  dom.videoMeta.hidden = true;
+  dom.videoName.textContent = "";
   dom.videoDetails.textContent = "";
 
   dom.sourceVideo.removeAttribute("src");
-  dom.scrub.disabled = true;
   dom.timeCurrent.textContent = "00:00:00";
   dom.timeTotal.textContent = "00:00:00";
 
-  dom.btnGenerate.disabled = true;
-  dom.btnPreview.disabled = true;
+  setVideoControlsEnabled(false);
+  dom.btnChooseVideo.classList.replace("btn--secondary", "btn--primary");
+  dom.chooseVideoLabel.textContent = "Choose Video…";
 
   dom.previewImage.hidden = true;
+  dom.previewImage.removeAttribute("src");
   dom.previewEmpty.hidden = false;
+  setPreviewModeEnabled(false);
+  updateZoomIndicator();
 }
 
 // ---------------------------------------------------------------------
@@ -223,19 +257,24 @@ function currentSettingsPayload() {
 async function requestPreview() {
   if (!state.videoPath) return;
 
+  const videoPath = state.videoPath;
   dom.previewStage.classList.add("is-loading");
   try {
     const result = await postJSON(API.preview, {
-      video_path: state.videoPath,
+      video_path: videoPath,
       settings: currentSettingsPayload(),
       max_frames: 400,
       max_preview_width: 1600,
     });
 
+    // The video may have been removed/replaced while this was rendering.
+    if (state.videoPath !== videoPath) return;
+
     dom.previewEmpty.hidden = true;
     dom.previewImage.hidden = false;
     dom.previewImage.src = `data:image/png;base64,${result.image_base64}`;
     dom.previewImage.onload = updateZoomIndicator;
+    setPreviewModeEnabled(true);
   } catch (err) {
     console.error("Preview failed:", err.message);
   } finally {
@@ -321,7 +360,7 @@ async function startGenerate() {
   } finally {
     setTimeout(() => {
       dom.btnGenerate.innerHTML = originalLabel;
-      dom.btnGenerate.disabled = false;
+      dom.btnGenerate.disabled = !state.videoPath;
     }, 1800);
   }
 }
@@ -373,10 +412,30 @@ dom.blur.addEventListener("input", () => {
   requestPreviewDebounced();
 });
 
-dom.outputWidth.addEventListener("input", () => {
-  state.settings.max_output_width = Number(dom.outputWidth.value);
-  dom.valOutputWidth.textContent = `${state.settings.max_output_width}px`;
+function setOutputWidth(px) {
+  state.settings.max_output_width = px;
+  dom.valOutputWidth.textContent = `${px}px`;
   requestPreviewDebounced();
+}
+
+wireSegmented(dom.outputWidthPreset, (value) => {
+  const isCustom = value === "other";
+  dom.customWidthRow.hidden = !isCustom;
+  if (!isCustom) {
+    setOutputWidth(Number(value));
+    return;
+  }
+  // Start the custom field from whatever width was in effect.
+  dom.outputWidthCustom.value = state.settings.max_output_width;
+  dom.outputWidthCustom.focus();
+  dom.outputWidthCustom.select();
+});
+
+dom.outputWidthCustom.addEventListener("change", () => {
+  const requested = Math.round(Number(dom.outputWidthCustom.value)) || state.settings.max_output_width;
+  const px = Math.min(OUTPUT_WIDTH_MAX, Math.max(OUTPUT_WIDTH_MIN, requested));
+  dom.outputWidthCustom.value = px;
+  setOutputWidth(px);
 });
 
 wireSegmented(dom.outputFormat, (value) => {
@@ -468,6 +527,8 @@ function initUI() {
   dom.valStripeWidth.textContent = `${state.settings.stripe_width}px`;
   dom.valBlur.textContent = `${state.settings.blur}px`;
   dom.valOutputWidth.textContent = `${state.settings.max_output_width}px`;
+  setVideoControlsEnabled(false);
+  setPreviewModeEnabled(false);
 }
 
 initUI();
